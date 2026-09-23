@@ -1,35 +1,47 @@
 (function(){
 var DATA="https://raw.githubusercontent.com/vencacapital/tvr-commodities/refs/heads/main/data/commodities.json";
 var MACRO="https://thevencareport.com/dashboard/";
-var CSS="#tvrc{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a1a1a;max-width:1180px;margin:0 auto;font-size:14px}"
+var CSS="#tvrc{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a1a1a;max-width:1180px;margin:0 auto;font-size:14px;line-height:1.45}"
 +"#tvrc *{box-sizing:border-box}"
-+"#tvrc .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:18px;padding-bottom:12px;border-bottom:2px solid #1a1a1a}"
++"#tvrc .bar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:18px;padding-bottom:12px;border-bottom:2px solid #1a1a1a}"
 +"#tvrc .stamp{font-size:12px;color:#666}"
-+"#tvrc .macrolink{display:inline-block;padding:7px 14px;background:#1a1a1a;color:#fff !important;text-decoration:none !important;border-radius:3px;font-size:12px;font-weight:600;letter-spacing:.04em}"
++"#tvrc .macrolink{display:inline-block;padding:8px 15px;background:#1a1a1a;color:#fff !important;text-decoration:none !important;border-radius:3px;font-size:12px;font-weight:600;letter-spacing:.04em;white-space:nowrap}"
 +"#tvrc .movers{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px}"
 +"#tvrc .mcard{border:1px solid #e0e0e0;border-radius:4px;padding:14px 16px}"
-+"#tvrc .mcard h4{margin:0 0 10px;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:#666;font-weight:700}"
-+"#tvrc .mrow{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f2f2f2;font-size:13px}"
++"#tvrc .mcard h4{margin:0 0 10px !important;padding:0 !important;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:#666;font-weight:700;line-height:1.3}"
++"#tvrc .mrow{display:grid !important;grid-template-columns:1fr auto;align-items:baseline;gap:10px;padding:6px 0;border-bottom:1px solid #f2f2f2;font-size:13px}"
 +"#tvrc .mrow:last-child{border-bottom:none}"
-+"#tvrc .filters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}"
-+"#tvrc .filters button{padding:6px 13px;border:1px solid #ccc;background:#fff;border-radius:3px;cursor:pointer;font-size:12px;font-weight:600;color:#444}"
++"#tvrc .mrow .mnm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}"
++"#tvrc .mrow .mvl{text-align:right !important;font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1;min-width:74px}"
++"#tvrc .filters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}"
++"#tvrc .filters button{padding:6px 13px;border:1px solid #ccc;background:#fff;border-radius:3px;cursor:pointer;font-size:12px;font-weight:600;color:#444;line-height:1.2}"
 +"#tvrc .filters button.on{background:#1a1a1a;color:#fff;border-color:#1a1a1a}"
-+"#tvrc .wrap{overflow-x:auto;border:1px solid #e0e0e0;border-radius:4px}"
-+"#tvrc table{width:100%;border-collapse:collapse;min-width:980px}"
-+"#tvrc th{background:#f7f7f7;padding:10px 9px;text-align:right;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#555;border-bottom:1px solid #ddd;cursor:pointer;white-space:nowrap;font-weight:700}"
-+"#tvrc th:first-child{text-align:left}"
-+"#tvrc th:hover{background:#ededed}"
-+"#tvrc td{padding:9px;text-align:right;border-bottom:1px solid #f2f2f2;white-space:nowrap;font-variant-numeric:tabular-nums}"
-+"#tvrc td:first-child{text-align:left;font-weight:600}"
-+"#tvrc tr:hover td{background:#fafafa}"
-+"#tvrc .grp{font-size:10px;color:#999;font-weight:400;display:block;letter-spacing:.05em;text-transform:uppercase}"
++"#tvrc .hint{display:none;font-size:11px;color:#999;margin:0 0 8px}"
++"#tvrc .wrap{overflow-x:auto;border:1px solid #e0e0e0;border-radius:4px;-webkit-overflow-scrolling:touch}"
++"#tvrc table{width:100%;border-collapse:collapse;min-width:900px;margin:0 !important}"
++"#tvrc thead th{background:#f7f7f7;padding:10px 10px;text-align:right !important;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:#555;border-bottom:1px solid #ddd;cursor:pointer;white-space:nowrap;font-weight:700;line-height:1.2}"
++"#tvrc thead th:first-child{text-align:left !important;position:sticky;left:0;z-index:3;background:#f7f7f7}"
++"#tvrc thead th:hover{background:#ededed}"
++"#tvrc tbody td{padding:9px 10px;text-align:right !important;border-bottom:1px solid #f2f2f2;white-space:nowrap;font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1;vertical-align:middle}"
++"#tvrc tbody td:first-child{text-align:left !important;font-weight:600;position:sticky;left:0;z-index:2;background:#fff;border-right:1px solid #eee}"
++"#tvrc tbody tr:hover td{background:#fafafa}"
++"#tvrc tbody tr:hover td:first-child{background:#fafafa}"
++"#tvrc .grp{font-size:10px;color:#999;font-weight:400;display:block;letter-spacing:.05em;text-transform:uppercase;line-height:1.3}"
 +"#tvrc .pos{color:#0a7d3e;font-weight:600}"
 +"#tvrc .neg{color:#c0392b;font-weight:600}"
 +"#tvrc .nil{color:#bbb}"
-+"#tvrc .pct{display:inline-block;min-width:34px;padding:2px 5px;border-radius:3px;font-size:12px;font-weight:600}"
-+"#tvrc .note{margin-top:14px;font-size:11px;color:#777;line-height:1.65}"
++"#tvrc .pct{display:inline-block;min-width:32px;padding:2px 6px;border-radius:3px;font-size:12px;font-weight:600;text-align:center}"
++"#tvrc .note{margin-top:14px;font-size:11px;color:#777;line-height:1.7}"
 +"#tvrc .note b{color:#444}"
-+"@media(max-width:700px){#tvrc .movers{grid-template-columns:1fr}}";
++"@media(max-width:820px){"
++"#tvrc .movers{grid-template-columns:1fr;gap:12px}"
++"#tvrc .hint{display:block}"
++"#tvrc .bar{gap:10px}"
++"#tvrc table{min-width:760px}"
++"#tvrc thead th{padding:8px 7px;font-size:9px}"
++"#tvrc tbody td{padding:8px 7px;font-size:12.5px}"
++"#tvrc .macrolink{padding:7px 12px}"
++"}";
 
 var st=document.createElement("style");
 st.appendChild(document.createTextNode(CSS));
@@ -46,7 +58,7 @@ function band(v){if(v===null||v===undefined)return '<span class="nil">&ndash;</s
 
 function movers(rows){
 var v=rows.filter(function(r){return r.chg_1w!==null&&r.chg_1w!==undefined;}).slice().sort(function(a,b){return b.chg_1w-a.chg_1w;});
-function list(arr){return arr.map(function(r){return '<div class="mrow"><span>'+r.name+'</span>'+sign(r.chg_1w)+'</div>';}).join("");}
+function list(arr){return arr.map(function(r){return '<div class="mrow"><span class="mnm">'+r.name+'</span><span class="mvl">'+sign(r.chg_1w)+'</span></div>';}).join("");}
 return '<div class="movers"><div class="mcard"><h4>Biggest gainers &middot; 1 week</h4>'+list(v.slice(0,5))+'</div><div class="mcard"><h4>Biggest decliners &middot; 1 week</h4>'+list(v.slice(-5).reverse())+'</div></div>';
 }
 
@@ -61,7 +73,7 @@ rows.sort(function(a,b){
  if(y===null||y===undefined)return -1;
  return sortD*(y-x);
 });
-var h=["name|Instrument","last|Last","chg_1w|1W %","chg_1m|1M %","vs_3y|vs 3Y avg","vs_5y|vs 5Y avg","rank_5y|5Y %ile","seas_avg|Seas. avg","seas_hit|Seas. hit","cot_net|COT net","cot_rank_3y|COT %ile"];
+var h=["name|Instrument","last|Last","chg_1w|1W %","chg_1m|1M %","vs_3y|vs 3Y","vs_5y|vs 5Y","rank_5y|5Y %ile","seas_avg|Seas. avg","seas_hit|Seas. hit","cot_net|COT net","cot_rank_3y|COT %ile"];
 var t='<div class="wrap"><table><thead><tr>'+h.map(function(c){var p=c.split("|");return '<th data-k="'+p[0]+'">'+p[1]+'</th>';}).join("")+'</tr></thead><tbody>';
 rows.forEach(function(r){
 t+='<tr><td>'+r.name+'<span class="grp">'+r.group+'</span></td>'
@@ -86,8 +98,9 @@ var groups=["All","Energy","Metals","Grains","Softs","Livestock"];
 el.innerHTML='<div class="bar"><div><div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#666;font-weight:700">Commodity Monitor</div><div class="stamp">Prices to '+(D.rows[0]?D.rows[0].asof:"")+' &middot; COT to '+cotd+' &middot; Built '+D.generated_utc+'</div></div><a class="macrolink" href="'+MACRO+'">Macro Dashboard &rarr;</a></div>'
 +movers(D.rows)
 +'<div class="filters">'+groups.map(function(g){return '<button data-g="'+g+'" class="'+(g===filt?"on":"")+'">'+g+'</button>';}).join("")+'</div>'
++'<div class="hint">Swipe the table sideways to see all columns</div>'
 +table()
-+'<div class="note"><b>1W / 1M %</b> are changes over the past week and month, measured to the nearest prior trading day. <b>vs 3Y / 5Y avg</b> is the current price against its average daily close over that period. <b>5Y %ile</b> is where the price sits within its five-year range, 0 being the low and 100 the high. <b>Seas. avg</b> is the average return for '+D.month+' across the last 15 years, and <b>Seas. hit</b> the share of those years that finished higher. <b>COT net</b> is managed money net futures positioning from the CFTC Disaggregated report, and <b>COT %ile</b> its rank against the last three years. Prices are front-month futures continuations and may include contract roll effects. Seasonality and positioning describe past behaviour and are not forecasts.</div>';
++'<div class="note"><b>1W / 1M %</b> are changes over the past week and month, measured to the nearest prior trading day. <b>vs 3Y / 5Y</b> is the current price against its average daily close over that period. <b>5Y %ile</b> is where the price sits within its five-year range, 0 being the low and 100 the high. <b>Seas. avg</b> is the average '+D.month+' return across the last 15 completed years, and <b>Seas. hit</b> the share of those years that finished higher. <b>COT net</b> is managed money net futures positioning from the CFTC Disaggregated report, and <b>COT %ile</b> its rank over the past three years. Prices are front-month futures continuations, so a week or month spanning a contract expiry will include the roll between contracts as well as the price move. Seasonality and positioning describe past behaviour and are not forecasts.</div>';
 
 var bs=el.querySelectorAll(".filters button");
 for(var a=0;a<bs.length;a++){bs[a].onclick=function(){filt=this.getAttribute("data-g");draw();};}
