@@ -109,7 +109,8 @@ def price_on_or_before(s, target):
 def price_stats(df):
     s = df.set_index("Date")["Close"]
     end = s.index[-1]
-        stale_days = (pd.Timestamp.now(tz="UTC").tz_localize(None).normalize() - end).days
+    today = pd.Timestamp.now(tz="UTC").tz_localize(None).normalize()
+    stale_days = (today - end).days
     if stale_days > 7:
         raise ValueError("stale: last price " + end.date().isoformat())
     last = float(s.iloc[-1])
@@ -125,7 +126,6 @@ def price_stats(df):
     prev, prevdate = price_on_or_before(s, end - pd.Timedelta(days=7))
     if prev and (end - prevdate).days <= 12:
         out["chg_1w"] = round((last / prev - 1) * 100, 2)
-        out["prev_1w_date"] = prevdate.date().isoformat()
     out["chg_1m"] = None
     prev, prevdate = price_on_or_before(s, end - pd.DateOffset(months=1))
     if prev and (end - prevdate).days <= 40:
@@ -146,7 +146,7 @@ def price_stats(df):
     out["seas_hit"] = None
     out["seas_n"] = None
     if span_days >= 8 * 365:
-                m = s.resample("ME").last()
+        m = s.resample("ME").last()
         if m.index[-1].month == end.month and m.index[-1].year == end.year:
             m = m.iloc[:-1]
         r = m.pct_change().dropna()
@@ -211,9 +211,9 @@ def cot_stats(cot, code):
         return out
     net = float(d["net"].iloc[-1])
     prev = float(d["net"].iloc[-2]) if len(d) > 1 else None
+    w = d[d["date"] >= d["date"].iloc[-1] - pd.DateOffset(years=3)]
     out["cot_net"] = int(net)
     out["cot_chg"] = int(net - prev) if prev is not None else None
-        w = d[d["date"] >= d["date"].iloc[-1] - pd.DateOffset(years=3)]
     out["cot_rank_3y"] = round(float((w["net"] <= net).mean() * 100), 0)
     out["cot_n"] = int(len(w))
     out["cot_date"] = d["date"].iloc[-1].date().isoformat()
@@ -234,7 +234,8 @@ def main():
             r.update(cot_stats(cot, code))
             rows.append(r)
             print("OK   " + name.ljust(17) + " last " + str(r["last"]).rjust(10)
-                  + "  1w " + str(r["chg_1w"]).rjust(7) + "%  asof " + r["asof"])
+                  + "  1w " + str(r["chg_1w"]).rjust(7) + "%  seas " + str(r["seas_avg"]).rjust(7)
+                  + "  cotN " + str(r.get("cot_n", "-")))
         except Exception as e:
             errors.append(name + ": " + str(e))
             print("FAIL " + name + ": " + str(e))
@@ -251,9 +252,7 @@ def main():
     print("--- DIAGNOSTIC REPORT ---")
     print(str(len(rows)) + " of " + str(len(UNIVERSE)) + " instruments built")
     print(str(len([x for x in rows if "cot_net" in x])) + " have COT data")
-    big = [x["name"] + " " + str(x["chg_1w"]) + "%" for x in rows
-           if x.get("chg_1w") is not None and abs(x["chg_1w"]) > 8]
-    print("Weekly moves over 8%: " + (", ".join(big) if big else "none"))
+    print(str(len([x for x in rows if x.get("seas_avg") is not None])) + " have seasonality")
     for e in errors:
         print("ISSUE: " + e)
 
