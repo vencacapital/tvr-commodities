@@ -146,7 +146,9 @@ def price_stats(df):
     out["seas_hit"] = None
     out["seas_n"] = None
     if span_days >= 8 * 365:
-        m = s.resample("ME").last()
+                m = s.resample("ME").last()
+        if m.index[-1].month == end.month and m.index[-1].year == end.year:
+            m = m.iloc[:-1]
         r = m.pct_change().dropna()
         r = r[r.index >= end - pd.DateOffset(years=15)]
         sel = r[r.index.month == end.month]
@@ -211,7 +213,9 @@ def cot_stats(cot, code):
     prev = float(d["net"].iloc[-2]) if len(d) > 1 else None
     out["cot_net"] = int(net)
     out["cot_chg"] = int(net - prev) if prev is not None else None
-    out["cot_rank_3y"] = round(float((d["net"] <= net).mean() * 100), 0)
+        w = d[d["date"] >= d["date"].iloc[-1] - pd.DateOffset(years=3)]
+    out["cot_rank_3y"] = round(float((w["net"] <= net).mean() * 100), 0)
+    out["cot_n"] = int(len(w))
     out["cot_date"] = d["date"].iloc[-1].date().isoformat()
     return out
 
