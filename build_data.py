@@ -44,6 +44,15 @@ def get(url, timeout=60):
     return urlopen(Request(url, headers=UA), timeout=timeout).read()
 
 
+def clean(df):
+    df = df.dropna(subset=["Close"])
+    df = df[df["Close"] > 0]
+    df["Date"] = pd.to_datetime(df["Date"]).dt.normalize()
+    df = df.drop_duplicates(subset=["Date"], keep="last")
+    df = df.sort_values("Date").reset_index(drop=True)
+    return df
+
+
 def yahoo(sym):
     q = sym.replace("=", "%3D")
     now = int(time.time())
@@ -57,11 +66,10 @@ def yahoo(sym):
         try:
             j = json.loads(get(u).decode("utf-8", "replace"))
             res = j["chart"]["result"][0]
-            df = pd.DataFrame({
+            df = clean(pd.DataFrame({
                 "Date": pd.to_datetime(res["timestamp"], unit="s"),
                 "Close": res["indicators"]["quote"][0]["close"],
-            })
-            df = df.dropna(subset=["Close"]).sort_values("Date").reset_index(drop=True)
+            }))
             if len(df) >= 60:
                 return df
             last = "only " + str(len(df)) + " rows"
@@ -75,12 +83,10 @@ def stooq(sym):
     txt = get("https://stooq.com/q/d/l/?s=" + sym + "&i=d").decode("utf-8", "replace")
     if "Date" not in txt[:40]:
         raise ValueError("no data returned")
-    df = pd.read_csv(io.StringIO(txt))
-    df["Date"] = pd.to_datetime(df["Date"])
-    df = df.dropna(subset=["Close"]).sort_values("Date").reset_index(drop=True)
+    df = clean(pd.read_csv(io.StringIO(txt))[["Date", "Close"]])
     if len(df) < 60:
         raise ValueError("only " + str(len(df)) + " rows")
-    return df[["Date", "Close"]]
+    return df
 
 
 def fetch_prices(ysym, ssym):
@@ -93,10 +99,20 @@ def fetch_prices(ysym, ssym):
             raise ValueError(str(e1) + " | stooq: " + str(e2))
 
 
+def price_on_or_before(s, target):
+    w = s[s.index <= target]
+    if len(w) == 0:
+        return None, None
+    return float(w.iloc[-1]), w.index[-1]
+
+
 def price_stats(df):
     s = df.set_index("Date")["Close"]
-    last = float(s.iloc[-1])
     end = s.index[-1]
+    stale_days = (pd.Timestamp.utcnow().tz_localize(None).normalize() - end).days
+    if stale_days > 7:
+        raise ValueError("stale: last price " + end.date().isoformat())
+    last = float(s.iloc[-1])
     first = s.index[0]
     span_days = (end - first).days
     out = {}
@@ -104,9 +120,16 @@ def price_stats(df):
     out["asof"] = end.date().isoformat()
     out["hist_start"] = first.date().isoformat()
     out["hist_years"] = round(span_days / 365.25, 1)
+    out["stale_days"] = int(stale_days)
     out["chg_1w"] = None
-    if len(s) > 6:
-        out["chg_1w"] = round((last / float(s.iloc[-6]) - 1) * 100, 2)
+    prev, prevdate = price_on_or_before(s, end - pd.Timedelta(days=7))
+    if prev and (end - prevdate).days <= 12:
+        out["chg_1w"] = round((last / prev - 1) * 100, 2)
+        out["prev_1w_date"] = prevdate.date().isoformat()
+    out["chg_1m"] = None
+    prev, prevdate = price_on_or_before(s, end - pd.DateOffset(months=1))
+    if prev and (end - prevdate).days <= 40:
+        out["chg_1m"] = round((last / prev - 1) * 100, 2)
     for yrs in (3, 5):
         key = "vs_" + str(yrs) + "y"
         out[key] = None
@@ -185,7 +208,9 @@ def cot_stats(cot, code):
         errors.append("COT code " + str(code) + " not found")
         return out
     net = float(d["net"].iloc[-1])
+    prev = float(d["net"].iloc[-2]) if len(d) > 1 else None
     out["cot_net"] = int(net)
+    out["cot_chg"] = int(net - prev) if prev is not None else None
     out["cot_rank_3y"] = round(float((d["net"] <= net).mean() * 100), 0)
     out["cot_date"] = d["date"].iloc[-1].date().isoformat()
     return out
@@ -204,7 +229,8 @@ def main():
             r.update(price_stats(df))
             r.update(cot_stats(cot, code))
             rows.append(r)
-            print("OK   " + name + "  " + str(r["hist_years"]) + "y history, from " + r["hist_start"])
+            print("OK   " + name.ljust(17) + " last " + str(r["last"]).rjust(10)
+                  + "  1w " + str(r["chg_1w"]).rjust(7) + "%  asof " + r["asof"])
         except Exception as e:
             errors.append(name + ": " + str(e))
             print("FAIL " + name + ": " + str(e))
@@ -221,8 +247,9 @@ def main():
     print("--- DIAGNOSTIC REPORT ---")
     print(str(len(rows)) + " of " + str(len(UNIVERSE)) + " instruments built")
     print(str(len([x for x in rows if "cot_net" in x])) + " have COT data")
-    print(str(len([x for x in rows if x.get("vs_5y") is not None])) + " have 5-year averages")
-    print(str(len([x for x in rows if x.get("seas_avg") is not None])) + " have seasonality")
+    big = [x["name"] + " " + str(x["chg_1w"]) + "%" for x in rows
+           if x.get("chg_1w") is not None and abs(x["chg_1w"]) > 8]
+    print("Weekly moves over 8%: " + (", ".join(big) if big else "none"))
     for e in errors:
         print("ISSUE: " + e)
 
