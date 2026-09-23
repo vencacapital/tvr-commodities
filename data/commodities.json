@@ -1,0 +1,28 @@
+{
+ "generated_utc": "2026-09-23 01:03 UTC",
+ "month": "September",
+ "rows": [],
+ "errors": [
+  "WTI Crude (cl.f): no data returned",
+  "Brent Crude (cb.f): no data returned",
+  "Natural Gas (ng.f): no data returned",
+  "RBOB Gasoline (rb.f): no data returned",
+  "Heating Oil (ho.f): no data returned",
+  "Gold (gc.f): no data returned",
+  "Silver (si.f): no data returned",
+  "Copper (hg.f): no data returned",
+  "Platinum (pl.f): no data returned",
+  "Palladium (pa.f): no data returned",
+  "Wheat (Chicago) (zw.f): no data returned",
+  "Corn (zc.f): no data returned",
+  "Soybeans (zs.f): no data returned",
+  "Soybean Oil (zl.f): no data returned",
+  "Soybean Meal (zm.f): no data returned",
+  "Sugar (sb.f): no data returned",
+  "Coffee (kc.f): no data returned",
+  "Cocoa (cc.f): no data returned",
+  "Cotton (ct.f): no data returned",
+  "Live Cattle (le.f): no data returned",
+  "Lean Hogs (he.f): no data returned"
+ ]
+}
