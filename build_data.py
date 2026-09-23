@@ -2,42 +2,72 @@
 import io
 import os
 import json
+import time
 import zipfile
 import datetime as dt
 from urllib.request import urlopen, Request
 import pandas as pd
 
-UA = {"User-Agent": "Mozilla/5.0"}
+UA = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Accept": "*/*",
+}
 
 UNIVERSE = [
-    ("WTI Crude", "Energy", "cl.f", "067651"),
-    ("Brent Crude", "Energy", "cb.f", None),
-    ("Natural Gas", "Energy", "ng.f", "023651"),
-    ("RBOB Gasoline", "Energy", "rb.f", "111659"),
-    ("Heating Oil", "Energy", "ho.f", "022651"),
-    ("Gold", "Metals", "gc.f", "088691"),
-    ("Silver", "Metals", "si.f", "084691"),
-    ("Copper", "Metals", "hg.f", "085692"),
-    ("Platinum", "Metals", "pl.f", "076651"),
-    ("Palladium", "Metals", "pa.f", "075651"),
-    ("Wheat (Chicago)", "Grains", "zw.f", "001602"),
-    ("Corn", "Grains", "zc.f", "002602"),
-    ("Soybeans", "Grains", "zs.f", "005602"),
-    ("Soybean Oil", "Grains", "zl.f", "007601"),
-    ("Soybean Meal", "Grains", "zm.f", "026603"),
-    ("Sugar", "Softs", "sb.f", "080732"),
-    ("Coffee", "Softs", "kc.f", "083731"),
-    ("Cocoa", "Softs", "cc.f", "073732"),
-    ("Cotton", "Softs", "ct.f", "033661"),
-    ("Live Cattle", "Livestock", "le.f", "057642"),
-    ("Lean Hogs", "Livestock", "he.f", "054642"),
+    ("WTI Crude", "Energy", "CL=F", "cl.f", "067651"),
+    ("Brent Crude", "Energy", "BZ=F", "cb.f", None),
+    ("Natural Gas", "Energy", "NG=F", "ng.f", "023651"),
+    ("RBOB Gasoline", "Energy", "RB=F", "rb.f", "111659"),
+    ("Heating Oil", "Energy", "HO=F", "ho.f", "022651"),
+    ("Gold", "Metals", "GC=F", "gc.f", "088691"),
+    ("Silver", "Metals", "SI=F", "si.f", "084691"),
+    ("Copper", "Metals", "HG=F", "hg.f", "085692"),
+    ("Platinum", "Metals", "PL=F", "pl.f", "076651"),
+    ("Palladium", "Metals", "PA=F", "pa.f", "075651"),
+    ("Wheat (Chicago)", "Grains", "ZW=F", "zw.f", "001602"),
+    ("Corn", "Grains", "ZC=F", "zc.f", "002602"),
+    ("Soybeans", "Grains", "ZS=F", "zs.f", "005602"),
+    ("Soybean Oil", "Grains", "ZL=F", "zl.f", "007601"),
+    ("Soybean Meal", "Grains", "ZM=F", "zm.f", "026603"),
+    ("Sugar", "Softs", "SB=F", "sb.f", "080732"),
+    ("Coffee", "Softs", "KC=F", "kc.f", "083731"),
+    ("Cocoa", "Softs", "CC=F", "cc.f", "073732"),
+    ("Cotton", "Softs", "CT=F", "ct.f", "033661"),
+    ("Live Cattle", "Livestock", "LE=F", "le.f", "057642"),
+    ("Lean Hogs", "Livestock", "HE=F", "he.f", "054642"),
 ]
 
 errors = []
 
 
-def get(url, timeout=90):
+def get(url, timeout=60):
     return urlopen(Request(url, headers=UA), timeout=timeout).read()
+
+
+def yahoo(sym):
+    q = sym.replace("=", "%3D")
+    tail = q + "?range=max&interval=1d"
+    urls = [
+        "https://query1.finance.yahoo.com/v8/finance/chart/" + tail,
+        "https://query2.finance.yahoo.com/v8/finance/chart/" + tail,
+    ]
+    last = "unknown"
+    for u in urls:
+        try:
+            j = json.loads(get(u).decode("utf-8", "replace"))
+            res = j["chart"]["result"][0]
+            df = pd.DataFrame({
+                "Date": pd.to_datetime(res["timestamp"], unit="s"),
+                "Close": res["indicators"]["quote"][0]["close"],
+            })
+            df = df.dropna(subset=["Close"]).sort_values("Date").reset_index(drop=True)
+            if len(df) >= 60:
+                return df
+            last = "only " + str(len(df)) + " rows"
+        except Exception as e:
+            last = str(e)
+        time.sleep(1)
+    raise ValueError("yahoo: " + last)
 
 
 def stooq(sym):
@@ -50,6 +80,16 @@ def stooq(sym):
     if len(df) < 60:
         raise ValueError("only " + str(len(df)) + " rows")
     return df[["Date", "Close"]]
+
+
+def fetch_prices(ysym, ssym):
+    try:
+        return yahoo(ysym), "yahoo"
+    except Exception as e1:
+        try:
+            return stooq(ssym), "stooq"
+        except Exception as e2:
+            raise ValueError(str(e1) + " | stooq: " + str(e2))
 
 
 def price_stats(df):
@@ -91,7 +131,7 @@ def load_cot():
     yr = dt.date.today().year
     for y in (yr - 3, yr - 2, yr - 1, yr):
         try:
-            raw = get("https://www.cftc.gov/files/dea/history/fut_disagg_txt_" + str(y) + ".zip")
+            raw = get("https://www.cftc.gov/files/dea/history/fut_disagg_txt_" + str(y) + ".zip", 120)
             z = zipfile.ZipFile(io.BytesIO(raw))
             names = [n for n in z.namelist() if n.lower().endswith(".txt")]
             frames.append(pd.read_csv(z.open(names[0]), low_memory=False))
@@ -123,7 +163,9 @@ def load_cot():
     df["code"] = df["code"].astype(str).str.strip().str.zfill(6)
     df["date"] = pd.to_datetime(df["date"], errors="coerce", format="mixed")
     df["net"] = pd.to_numeric(df["long"], errors="coerce") - pd.to_numeric(df["short"], errors="coerce")
-    return df.dropna(subset=["date", "net"]).sort_values("date")
+    df = df.dropna(subset=["date", "net"]).sort_values("date")
+    print("COT rows loaded: " + str(len(df)))
+    return df
 
 
 def cot_stats(cot, code):
@@ -144,18 +186,21 @@ def cot_stats(cot, code):
 def main():
     cot = load_cot()
     rows = []
-    for name, group, sym, code in UNIVERSE:
+    for name, group, ysym, ssym, code in UNIVERSE:
         try:
+            df, src = fetch_prices(ysym, ssym)
             r = {}
             r["name"] = name
             r["group"] = group
-            r.update(price_stats(stooq(sym)))
+            r["source"] = src
+            r.update(price_stats(df))
             r.update(cot_stats(cot, code))
             rows.append(r)
-            print("OK   " + name)
+            print("OK   " + name + " (" + src + ", " + str(len(df)) + " rows)")
         except Exception as e:
-            errors.append(name + " (" + sym + "): " + str(e))
+            errors.append(name + ": " + str(e))
             print("FAIL " + name + ": " + str(e))
+        time.sleep(1)
     out = {}
     out["generated_utc"] = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     out["month"] = dt.date.today().strftime("%B")
@@ -167,6 +212,8 @@ def main():
     print("")
     print("--- DIAGNOSTIC REPORT ---")
     print(str(len(rows)) + " of " + str(len(UNIVERSE)) + " instruments built")
+    withcot = len([x for x in rows if "cot_net" in x])
+    print(str(withcot) + " instruments have COT data")
     for e in errors:
         print("ISSUE: " + e)
 
