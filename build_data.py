@@ -245,16 +245,73 @@ def main():
     out["month"] = dt.date.today().strftime("%B")
     out["rows"] = rows
     out["errors"] = errors
-    os.makedirs("data", exist_ok=True)
-    with open("data/commodities.json", "w") as f:
+        os.makedirs("data", exist_ok=True)
+    with open("data/pending.json", "w") as f:
         json.dump(out, f, indent=1)
     print("")
     print("--- DIAGNOSTIC REPORT ---")
     print(str(len(rows)) + " of " + str(len(UNIVERSE)) + " instruments built")
     print(str(len([x for x in rows if "cot_net" in x])) + " have COT data")
     print(str(len([x for x in rows if x.get("seas_avg") is not None])) + " have seasonality")
-    for e in errors:
+        for e in errors:
         print("ISSUE: " + e)
+    return rows
 
 
-main()
+def validate(rows):
+    """Refuse to publish data that fails basic sanity checks."""
+    fatal = []
+    warn = []
+    expected = len(UNIVERSE)
+
+    if len(rows) < expected - 2:
+        fatal.append("only " + str(len(rows)) + " of " + str(expected) + " instruments built")
+
+    stale = [r["name"] for r in rows if r.get("stale_days", 0) > 5]
+    if len(stale) > 3:
+        fatal.append("stale prices: " + ", ".join(stale))
+    elif stale:
+        warn.append("stale prices: " + ", ".join(stale))
+
+    nocot = [r["name"] for r in rows if "cot_net" not in r and r["name"] != "Brent Crude"]
+    if len(nocot) > 3:
+        fatal.append("missing COT: " + ", ".join(nocot))
+    elif nocot:
+        warn.append("missing COT: " + ", ".join(nocot))
+
+    noseas = [r["name"] for r in rows if r.get("seas_avg") is None]
+    if len(noseas) > 3:
+        fatal.append("missing seasonality: " + ", ".join(noseas))
+    elif noseas:
+        warn.append("missing seasonality: " + ", ".join(noseas))
+
+    for r in rows:
+        w = r.get("chg_1w")
+        if w is not None and abs(w) > 35:
+            fatal.append(r["name"] + " 1w move of " + str(w) + "% is implausible")
+        elif w is not None and abs(w) > 15:
+            warn.append(r["name"] + " 1w move " + str(w) + "%")
+        if r.get("last") is not None and r["last"] <= 0:
+            fatal.append(r["name"] + " price is " + str(r["last"]))
+
+    print("")
+    print("--- VALIDATION ---")
+    for w in warn:
+        print("WARN:  " + w)
+    for f in fatal:
+        print("FATAL: " + f)
+    if not warn and not fatal:
+        print("All checks passed.")
+    return fatal
+
+
+rows = main()
+problems = validate(rows)
+if problems:
+    print("")
+    print("Data NOT published - previous good data left in place.")
+    raise SystemExit(1)
+print("")
+import shutil
+shutil.move("data/pending.json", "data/commodities.json")
+print("Data published.")
