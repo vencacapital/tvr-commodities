@@ -46,7 +46,8 @@ def get(url, timeout=60):
 
 def yahoo(sym):
     q = sym.replace("=", "%3D")
-    tail = q + "?range=max&interval=1d"
+    now = int(time.time())
+    tail = q + "?period1=0&period2=" + str(now) + "&interval=1d"
     urls = [
         "https://query1.finance.yahoo.com/v8/finance/chart/" + tail,
         "https://query2.finance.yahoo.com/v8/finance/chart/" + tail,
@@ -96,33 +97,40 @@ def price_stats(df):
     s = df.set_index("Date")["Close"]
     last = float(s.iloc[-1])
     end = s.index[-1]
+    first = s.index[0]
+    span_days = (end - first).days
     out = {}
     out["last"] = round(last, 4)
     out["asof"] = end.date().isoformat()
+    out["hist_start"] = first.date().isoformat()
+    out["hist_years"] = round(span_days / 365.25, 1)
     out["chg_1w"] = None
     if len(s) > 6:
         out["chg_1w"] = round((last / float(s.iloc[-6]) - 1) * 100, 2)
     for yrs in (3, 5):
         key = "vs_" + str(yrs) + "y"
-        w = s[s.index >= end - pd.DateOffset(years=yrs)]
         out[key] = None
-        if len(w) > 200:
-            out[key] = round((last / float(w.mean()) - 1) * 100, 2)
-    w5 = s[s.index >= end - pd.DateOffset(years=5)]
+        if span_days >= yrs * 365 - 60:
+            w = s[s.index >= end - pd.DateOffset(years=yrs)]
+            if len(w) > 400:
+                out[key] = round((last / float(w.mean()) - 1) * 100, 2)
     out["rank_5y"] = None
-    if len(w5) > 200:
-        out["rank_5y"] = round(float((w5 <= last).mean() * 100), 0)
-    m = s.resample("ME").last()
-    r = m.pct_change().dropna()
-    r = r[r.index >= end - pd.DateOffset(years=15)]
-    sel = r[r.index.month == end.month]
+    if span_days >= 5 * 365 - 60:
+        w5 = s[s.index >= end - pd.DateOffset(years=5)]
+        if len(w5) > 400:
+            out["rank_5y"] = round(float((w5 <= last).mean() * 100), 0)
     out["seas_avg"] = None
     out["seas_hit"] = None
     out["seas_n"] = None
-    if len(sel) >= 5:
-        out["seas_avg"] = round(float(sel.mean() * 100), 2)
-        out["seas_hit"] = round(float((sel > 0).mean() * 100), 0)
-        out["seas_n"] = int(len(sel))
+    if span_days >= 8 * 365:
+        m = s.resample("ME").last()
+        r = m.pct_change().dropna()
+        r = r[r.index >= end - pd.DateOffset(years=15)]
+        sel = r[r.index.month == end.month]
+        if len(sel) >= 8:
+            out["seas_avg"] = round(float(sel.mean() * 100), 2)
+            out["seas_hit"] = round(float((sel > 0).mean() * 100), 0)
+            out["seas_n"] = int(len(sel))
     return out
 
 
@@ -196,7 +204,7 @@ def main():
             r.update(price_stats(df))
             r.update(cot_stats(cot, code))
             rows.append(r)
-            print("OK   " + name + " (" + src + ", " + str(len(df)) + " rows)")
+            print("OK   " + name + "  " + str(r["hist_years"]) + "y history, from " + r["hist_start"])
         except Exception as e:
             errors.append(name + ": " + str(e))
             print("FAIL " + name + ": " + str(e))
@@ -212,8 +220,9 @@ def main():
     print("")
     print("--- DIAGNOSTIC REPORT ---")
     print(str(len(rows)) + " of " + str(len(UNIVERSE)) + " instruments built")
-    withcot = len([x for x in rows if "cot_net" in x])
-    print(str(withcot) + " instruments have COT data")
+    print(str(len([x for x in rows if "cot_net" in x])) + " have COT data")
+    print(str(len([x for x in rows if x.get("vs_5y") is not None])) + " have 5-year averages")
+    print(str(len([x for x in rows if x.get("seas_avg") is not None])) + " have seasonality")
     for e in errors:
         print("ISSUE: " + e)
 
