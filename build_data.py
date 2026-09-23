@@ -109,7 +109,7 @@ def price_on_or_before(s, target):
 def price_stats(df):
     s = df.set_index("Date")["Close"]
     end = s.index[-1]
-    stale_days = (pd.Timestamp.utcnow().tz_localize(None).normalize() - end).days
+        stale_days = (pd.Timestamp.now(tz="UTC").tz_localize(None).normalize() - end).days
     if stale_days > 7:
         raise ValueError("stale: last price " + end.date().isoformat())
     last = float(s.iloc[-1])
