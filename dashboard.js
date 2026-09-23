@@ -43,6 +43,17 @@ var CSS="#tvrc{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,He
 +"#tvrc .macrolink{padding:7px 12px}"
 +"}";
 
+function staleBanner(D){
+var built=D.generated_iso;
+if(!built){return "";}
+var age=Math.floor((Date.now()-new Date(built+"T00:00:00Z").getTime())/86400000);
+if(age<4){return "";}
+var msg=age<8
+ ? "This data was last updated "+age+" days ago and may not reflect current prices."
+ : "This data is more than a week old ("+age+" days) and should not be relied on until it refreshes.";
+return '<div style="padding:11px 14px;margin-bottom:16px;border-radius:4px;border:1px solid #e8c4a0;background:#fdf6ec;color:#8a5a20;font-size:13px;font-weight:600">'+msg+'</div>';
+}
+ 
 var st=document.createElement("style");
 st.appendChild(document.createTextNode(CSS));
 document.head.appendChild(st);
@@ -96,6 +107,7 @@ var cotd="";
 for(var i=0;i<D.rows.length;i++){if(D.rows[i].cot_date){cotd=D.rows[i].cot_date;break;}}
 var groups=["All","Energy","Metals","Grains","Softs","Livestock"];
 el.innerHTML='<div class="bar"><div><div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#666;font-weight:700">Commodity Monitor</div><div class="stamp">Prices to '+(D.rows[0]?D.rows[0].asof:"")+' &middot; COT to '+cotd+' &middot; Built '+D.generated_utc+'</div></div><a class="macrolink" href="'+MACRO+'">Macro Dashboard &rarr;</a></div>'
++staleBanner(D)
 +movers(D.rows)
 +'<div class="filters">'+groups.map(function(g){return '<button data-g="'+g+'" class="'+(g===filt?"on":"")+'">'+g+'</button>';}).join("")+'</div>'
 +'<div class="hint">Swipe the table sideways to see all columns</div>'
