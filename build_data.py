@@ -100,6 +100,17 @@ def fetch_prices(ysym, ssym):
             raise ValueError(str(e1) + " | stooq: " + str(e2))
 
 
+def roll_adjust(s):
+    r = s.pct_change()
+    typical = r.abs().rolling(250, min_periods=60).median().shift(1)
+    mask = (r.abs() > 0.08) & (r.abs() > typical * 6)
+    jumps = r[mask]
+    adj = s.copy()
+    for d, move in jumps.items():
+        adj.loc[adj.index < d] = adj.loc[adj.index < d] * (1 + move)
+    return adj, list(jumps.index)
+
+
 def price_on_or_before(s, target):
     w = s[s.index <= target]
     if len(w) == 0:
@@ -114,6 +125,7 @@ def price_stats(df):
     stale_days = (today - end).days
     if stale_days > 7:
         raise ValueError("stale: last price " + end.date().isoformat())
+    adj, jumps = roll_adjust(s)
     last = float(s.iloc[-1])
     first = s.index[0]
     span_days = (end - first).days
@@ -123,14 +135,16 @@ def price_stats(df):
     out["hist_start"] = first.date().isoformat()
     out["hist_years"] = round(span_days / 365.25, 1)
     out["stale_days"] = int(stale_days)
+    out["roll_dates"] = [d.date().isoformat() for d in jumps if (end - d).days <= 35]
+    alast = float(adj.iloc[-1])
     out["chg_1w"] = None
-    prev, prevdate = price_on_or_before(s, end - pd.Timedelta(days=7))
+    prev, prevdate = price_on_or_before(adj, end - pd.Timedelta(days=7))
     if prev and (end - prevdate).days <= 12:
-        out["chg_1w"] = round((last / prev - 1) * 100, 2)
+        out["chg_1w"] = round((alast / prev - 1) * 100, 2)
     out["chg_1m"] = None
-    prev, prevdate = price_on_or_before(s, end - pd.DateOffset(months=1))
+    prev, prevdate = price_on_or_before(adj, end - pd.DateOffset(months=1))
     if prev and (end - prevdate).days <= 40:
-        out["chg_1m"] = round((last / prev - 1) * 100, 2)
+        out["chg_1m"] = round((alast / prev - 1) * 100, 2)
     for yrs in (3, 5):
         key = "vs_" + str(yrs) + "y"
         out[key] = None
@@ -147,7 +161,7 @@ def price_stats(df):
     out["seas_hit"] = None
     out["seas_n"] = None
     if span_days >= 8 * 365:
-        m = s.resample("ME").last()
+        m = adj.resample("ME").last()
         if m.index[-1].month == end.month and m.index[-1].year == end.year:
             m = m.iloc[:-1]
         r = m.pct_change().dropna()
@@ -234,8 +248,9 @@ def build():
             r.update(price_stats(df))
             r.update(cot_stats(cot, code))
             rows.append(r)
+            flag = "  ROLL " + ",".join(r["roll_dates"]) if r["roll_dates"] else ""
             print("OK   " + name.ljust(17) + " last " + str(r["last"]).rjust(10)
-                  + "  1w " + str(r["chg_1w"]).rjust(7) + "%  seas " + str(r["seas_avg"]).rjust(7))
+                  + "  1w " + str(r["chg_1w"]).rjust(7) + "%  asof " + r["asof"] + flag)
         except Exception as e:
             errors.append(name + ": " + str(e))
             print("FAIL " + name + ": " + str(e))
@@ -280,6 +295,9 @@ def validate(rows):
         fatal.append("missing seasonality: " + ", ".join(noseas))
     elif noseas:
         warn.append("missing seasonality: " + ", ".join(noseas))
+    rolled = [r["name"] + " (" + ", ".join(r["roll_dates"]) + ")" for r in rows if r.get("roll_dates")]
+    if rolled:
+        warn.append("contract switch corrected: " + "; ".join(rolled))
     for r in rows:
         w = r.get("chg_1w")
         if w is not None and abs(w) > 35:
