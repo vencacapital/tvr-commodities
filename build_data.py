@@ -30,12 +30,9 @@ UNIVERSE = [
     ("Soybeans", "Grains", "ZS=F", "zs.f", "005602"),
     ("Soybean Oil", "Grains", "ZL=F", "zl.f", "007601"),
     ("Soybean Meal", "Grains", "ZM=F", "zm.f", "026603"),
-    ("Sugar", "Softs", "SB=F", "sb.f", "080732"),
     ("Coffee", "Softs", "KC=F", "kc.f", "083731"),
     ("Cocoa", "Softs", "CC=F", "cc.f", "073732"),
-    ("Cotton", "Softs", "CT=F", "ct.f", "033661"),
     ("Live Cattle", "Livestock", "LE=F", "le.f", "057642"),
-    ("Lean Hogs", "Livestock", "HE=F", "he.f", "054642"),
 ]
 
 errors = []
